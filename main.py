@@ -49,10 +49,11 @@ def convert_xml_to_csv_stream(xml_path, csv_path):
     """Przetwarza XML strumieniowo element po elemencie i od razu zapisuje CSV"""
     print("Rozpoczynanie strumieniowej konwersji XML -> CSV...")
     
+    # Lista nagłówków bez zbędnej kolumny mpn
     fieldnames = [
         'item_id', 'title', 'description', 'url', 'brand', 'image_url', 
         'additional_image_urls', 'price', 'sale_price', 'availability', 
-        'condition', 'product_category', 'mpn', 'color', 'material', 
+        'condition', 'product_category', 'color', 'material', 
         'gender', 'age_group', 'seller_name', 'seller_url', 
         'return_policy', 'target_countries', 'store_country', 
         'is_eligible_search', 'is_eligible_checkout', 'is_ads_eligible'
@@ -63,7 +64,6 @@ def convert_xml_to_csv_stream(xml_path, csv_path):
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames, quoting=csv.QUOTE_MINIMAL)
         writer.writeheader()
         
-        # iterparse pozwala czytać wielkie pliki bez ładowania całości do RAM
         context = ET.iterparse(xml_path, events=('start', 'end'))
         _, root = next(context)
         
@@ -91,11 +91,10 @@ def convert_xml_to_csv_stream(xml_path, csv_path):
                     'image_url': get_g_text('image_link'),
                     'additional_image_urls': additional_images_str,
                     'price': get_g_text('price'),
-                    'sale_price': '',
+                    'sale_price': get_g_text('sale_price'),  # Dynamiczne pobieranie ceny promocyjnej
                     'availability': availability,
                     'condition': get_g_text('condition'),
                     'product_category': get_g_text('product_type'),
-                    'mpn': get_g_text('mpn'),
                     'color': get_g_text('color'),
                     'material': get_g_text('material'),
                     'gender': 'female',
@@ -113,14 +112,14 @@ def convert_xml_to_csv_stream(xml_path, csv_path):
                 writer.writerow(row)
                 count += 1
                 
-                # KLUCZOWE: zwalniamy pamięć natychmiast po zapisaniu wiersza
+                # Zwalnianie pamięci RAM na bieżąco
                 elem.clear()
                 root.clear()
 
     print(f"Pomyślnie przetworzono i zapisano {count} produktów do pliku CSV.")
 
 def upload_csv_to_r2(csv_path):
-    """Wysyła plik CSV z dysku na Cloudflare R2 w małych częściach"""
+    """Wysyła plik CSV z dysku na Cloudflare R2"""
     print("Łączenie z Cloudflare R2...")
     s3_client = boto3.client(
         's3',
